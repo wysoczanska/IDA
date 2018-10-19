@@ -1,0 +1,108 @@
+---
+title: "Homework 1.2"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library("moments")
+library(pastecs)
+library(ggplot2)
+library(car)
+library(MVN)
+library(mvoutlier)
+
+```
+
+## R Markdown
+```{r, include=FALSE}
+## Intro
+## loading the data and the first glance
+cars<-read.table("cars-PCA.txt")
+
+summary(cars)
+str(cars)
+
+# origin is a factor, as well as year
+cars$V8=factor(cars$V8)
+model_y = sort(unique(cars$V7))
+cars$V7=factor(cars$V7, labels = model_y)
+```
+Cars dataset consists of 99 observations of different car models. Each one of them is described by 9 different variables, 4 categorical: cylinders, car name, model year, origin, and 5 quantitative: engine displacement, horsepower, weight, acceleration, mpg.
+
+1.2.a)
+
+
+
+
+
+
+```{r include = FALSE}
+## 1.2.b) Bivariate Analysis
+
+# histogram of cost variable
+
+## 1.2 b)
+# first we check univariate normality for chosen variables
+hist(cars$V4)
+hist(cars$V5)
+```
+
+We start with basic scatterplot to see the distribution of the data for the two chosen variables, which are:
+1. Horsepower (V4)
+2. Weight (V5)
+
+
+```{r, echo=FALSE}
+
+# scatter plot just to have a look on overall bivariate data distribution
+p1 <- ggplot(cars, aes(x=V5, y=V4)) + geom_point()
+
+p1 + labs(title="Horsepower by weight", y="Horsepower", x="Weight")
+
+```
+We observe the general positive relationship between the two variables, but by the given plot we cannot say anything about bivariate normality yet. What we can conclude by now, is we'll probably be dealing with some outliers in the data. 
+First of all we perform Mardia's multivariate normality test. 
+```{r, echo=FALSE}
+# bivariate normality
+mvn(cbind(cars$V4,cars$V5), mvnTest="mardia", multivariatePlot="qq")
+```
+As we can see both variables fail the univariate normality test. They also fail bivariate normality test, because of the skewness. 
+We try to apply the Box-Cox transformation so as to improve bivariate normality, with the parameters given below:
+```{r, echo=FALSE}
+powerTransform(cbind(cars$V4,cars$V5))
+bivT=bcPower(cbind(cars$V4,cars$V5), c(-0.079,0.46))
+```
+
+```{r, echo=FALSE}
+mvn(bivT, mvnTest="mardia", multivariatePlot="qq")
+```
+As we can see, the normality has been improved as data after Box-Cox transform passes both tests, for kurtosis as well as for skewness.
+
+Another thing we want to conduct during our bivariate analysis is the outliers detection. To achieve this we use 'mvoutlier' package. 
+```{r, echo=FALSE}
+
+outs=pcout(cbind(cars$V4,cars$V5), makeplot=TRUE)
+outliersOrg<-which(outs$wfinal01==0)
+length(outliersOrg)
+# percent of outliers on the original dataset
+length(outliersOrg)/nrow(cars)
+```
+We detected 18 outliers in the original dataset based on two variables. We also applied same method for the dataset after the transform.
+
+```{r, echo=FALSE}
+# outliers after transform 
+outsT=pcout(bivT, makeplot=TRUE)
+length(which(outsT$wfinal01==0))
+```
+
+The dataset meeting bivariate normality for chosen variables includes only 5 outliers
+
+```{r, echo=FALSE}
+
+carsNoOut<-cars[-outliersOrg,]
+mvn(cbind(carsNoOut$V4,carsNoOut$V5), mvnTest="mardia", multivariatePlot="qq")
+```
+
