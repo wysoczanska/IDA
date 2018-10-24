@@ -1,9 +1,9 @@
 ---
 title: "Homework 1.2"
 output:
-  word_document: default
-  pdf_document: default
   html_document: default
+  pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -90,7 +90,7 @@ length(outliersOrg)
 # percent of outliers on the original dataset
 length(outliersOrg)/nrow(cars)
 ```
-We detected 18 outliers in the original dataset based on two variables. We also applied same method for the dataset after the transform.
+We detected 18 outliers in the original dataset based on the bivariate analysis. We also applied the same method for the transformed dataset.
 
 ```{r, echo=FALSE}
 # outliers after transform 
@@ -98,11 +98,17 @@ outsT=pcout(bivT, makeplot=TRUE)
 length(which(outsT$wfinal01==0))
 ```
 
-The dataset meeting bivariate normality for chosen variables includes only 5 outliers
-
+The dataset meeting bivariate normality criteria for chosen variables includes only 5 outliers, which are:
 ```{r, echo=FALSE}
+cars[which(outsT$wfinal01==0),"V9"]
+```
+
+
+
+```{r, include=FALSE}
 
 carsNoOut<-cars[-outliersOrg,]
 mvn(cbind(carsNoOut$V4,carsNoOut$V5), mvnTest="mardia", multivariatePlot="qq")
 ```
+Some final thoughts on outliers detection. We noticed 
 
