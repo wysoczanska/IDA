@@ -6,7 +6,7 @@ output:
   pdf_document: default
 ---
 
-###### Monika Wysocza�ska, 180817
+###### Monika Wysoczañska, 180817
 ###### Manuel Barbas, 180832
 ###### Diogo Oliveira, 180832\
 
@@ -125,8 +125,11 @@ As we analyzed, more than 18% of the original dataset has been classified as out
 After normality improvement we qualified about 5% samples as the outliers, and none of them seems to be a typing mistake. They should be taken into account in further analysis.
 
 
-## 1.2.2 Permutation test
+### 1.2.2 Permutation test
+In this case we want to see relationship between the size of the bill and percent tip and we will use the permutation test to help us.
+We started to combine the values of both variables using the c function.
 
+```{r, include=FALSE}
 #R -> number of simulations
 nSimulations <- 10000
 
@@ -139,21 +142,44 @@ labels <- c(rep(1,length(RestaurantTips$Bill)),rep(0,length(RestaurantTips$PctTi
 #Initialize the diffs and nR vector
 diffs <- rep(NA,nSimulations)
 nR <- rep(NA,nSimulations)
+```
+**##Results:**
+Observed correlation between the variables (**Bill** and **PctTip**): 
+```{r, include=FALSE}
+cor.test(RestaurantTips$Bill,RestaurantTips$PctTip, method ="pearson")
 
 #Correlation value of the variables
 rObs <- cor(RestaurantTips$Bill,RestaurantTips$PctTip, method ="pearson")
-cor.test(RestaurantTips$Bill,RestaurantTips$PctTip, method ="pearson")
-
+rObs
 #permutation test
 for(i in 1:nSimulations){
   shuffled_labels <- sample(labels, replace = FALSE)
   diffs[i]<- mean(combined_scores[shuffled_labels == 1]) - mean(combined_scores[shuffled_labels == 0])
   nR[i] <- cor(combined_scores[shuffled_labels == 1],combined_scores[shuffled_labels == 0])
 }
-
+```
+After calculating the value of the correlation between the two variables we started to execute the permutation test and for that we have calculated the correlation values for each step between the variables mentioned before. We ran the test 10000 times to see how the correlation values were changing. To help us understanding the real relation we have calculated also the difference of the mean values for each step. We had the following result:
+```{r, include=FALSE}
 #Histogram
-hist(nR)
 hist(diffs)
-
+```
+The following histogram represents the different values of the correlation between the variables after the permutation test
+```{r, include=FALSE}
+hist(nR)
+```
+Using the vector of the correlation values calculated before was possible to do the test described in the exercise sheet (upper-tail test). The upper-tail test is a statistical test in which the critical area of a distribution is one-sided so that it is either greater than or less than a certain value, but not both. 
+We reach the following value:
+```{r, include=FALSE}
 #upper-tail test p-value
 sum(nR>rObs)/nSimulations
+```
+**##Analysis: **
+With only the first correlation value obtained (0.1352976) we can conclude that the two variables have a weak association. After executing the permutation test (we can see in the difference histogram) that the difference of the mean value of each variable falls over most of the time (not always) near zero. With this we assume that the values are frequently similar, with some exceptions. 
+When we look to the correlation values obtained do the test we can see that the values never exceed the value **0.4** (positive way) neither **-0.2** (negative way). Supported with the following figure, the values obtained with the permutation test infer that the “Strength of Association” is small. This means that both variables are poorly linear related.
+
+![](C:/Users/ASUS/Documents/corre.png)
+
+Our final test was the upper-tailed test and we obtained the p-value 0.4347. We took the vector of correlation values obtained and counted the number of values greater than the original correlation value (rObs), over the number of simulations (10000). 
+With this p-value (relatively large) we assume that there is a weak evidence against the null hypothesis, so we fail to reject the null hypothesis.
+ Said this, we conclude that the value of the tip isn’t related to how much a customer spends on a bill.
+
