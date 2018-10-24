@@ -177,7 +177,7 @@ sum(nR>rObs)/nSimulations
 With only the first correlation value obtained (0.1352976) we can conclude that the two variables have a weak association. After executing the permutation test (we can see in the difference histogram) that the difference of the mean value of each variable falls over most of the time (not always) near zero. With this we assume that the values are frequently similar, with some exceptions. 
 When we look to the correlation values obtained do the test we can see that the values never exceed the value **0.4** (positive way) neither **-0.2** (negative way). Supported with the following figure, the values obtained with the permutation test infer that the “Strength of Association” is small. This means that both variables are poorly linear related.
 
-![](C:/Users/ASUS/Documents/corre.png)
+![](/IDA/corre.png)
 
 Our final test was the upper-tailed test and we obtained the p-value 0.4347. We took the vector of correlation values obtained and counted the number of values greater than the original correlation value (rObs), over the number of simulations (10000). 
 With this p-value (relatively large) we assume that there is a weak evidence against the null hypothesis, so we fail to reject the null hypothesis.
