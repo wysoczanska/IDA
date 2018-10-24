@@ -112,3 +112,36 @@ mvn(cbind(carsNoOut$V4,carsNoOut$V5), mvnTest="mardia", multivariatePlot="qq")
 ```
 Some final thoughts on outliers detection. We noticed 
 
+
+## 1.2.2 Permutation test
+
+#R -> number of simulations
+nSimulations <- 10000
+
+#vector of combined values
+combined_scores <- c(RestaurantTips$Bill,RestaurantTips$PctTip)
+
+#Represent each variable value with a label (1 to Bill and 0 to PctTip)
+labels <- c(rep(1,length(RestaurantTips$Bill)),rep(0,length(RestaurantTips$PctTip)))
+
+#Initialize the diffs and nR vector
+diffs <- rep(NA,nSimulations)
+nR <- rep(NA,nSimulations)
+
+#Correlation value of the variables
+rObs <- cor(RestaurantTips$Bill,RestaurantTips$PctTip, method ="pearson")
+cor.test(RestaurantTips$Bill,RestaurantTips$PctTip, method ="pearson")
+
+#permutation test
+for(i in 1:nSimulations){
+  shuffled_labels <- sample(labels, replace = FALSE)
+  diffs[i]<- mean(combined_scores[shuffled_labels == 1]) - mean(combined_scores[shuffled_labels == 0])
+  nR[i] <- cor(combined_scores[shuffled_labels == 1],combined_scores[shuffled_labels == 0])
+}
+
+#Histogram
+hist(nR)
+hist(diffs)
+
+#upper-tail test p-value
+sum(nR>rObs)/nSimulations
