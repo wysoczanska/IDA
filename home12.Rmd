@@ -1,135 +1,299 @@
 ---
 title: "Homework 1.2 Report"
 output:
+  
+  pdf_document: 
+    df_print: kable
   word_document: default
   html_document: default
-  pdf_document: default
 ---
+<center>
+#### Monika Wysoczanska, 180817
+#### Manuel Barbas, 180832
+#### Diogo Oliveira, 180832\
 
-###### Monika Wysoczañska, 180817
-###### Manuel Barbas, 180832
-###### Diogo Oliveira, 180832\
+## Cars Dataset
+### Description
+Cars dataset consists of 99 observations of different car models. Each one of them is described by 9 different variables, 4 categorical: cylinders, car name, model year, origin, and 5 quantitative: engine displacement, horsepower, weight, acceleration, mpg.
+
+\clearpage
 
 ```{r setup, include=FALSE}
+library(knitr)
+library("kableExtra")
 library("moments")
 library(pastecs)
 library(ggplot2)
 library(car)
 library(MVN)
 library(mvoutlier)
+library("corpcor")
+library(corrplot)
+library(ppcor)
+library()
 
 ```
 
-## Cars Dataset
+
 ```{r, include=FALSE}
 ## Intro
 ## loading the data and the first glance
 cars<-read.table("cars-PCA.txt")
+colnames(cars)<-c("mpg","cylinders","engine displacement","horsepower","weight","acceleration","year","origin","name")
 
 summary(cars)
 str(cars)
 
 # origin is a factor, as well as year
-cars$V8=factor(cars$V8)
-model_y = sort(unique(cars$V7))
-cars$V7=factor(cars$V7, labels = model_y)
+cars$origin=factor(cars$origin)
+model_y = sort(unique(cars$year))
+cars$year=factor(cars$year, labels = model_y)
 ```
 
-### Description
-Cars dataset consists of 99 observations of different car models. Each one of them is described by 9 different variables, 4 categorical: cylinders, car name, model year, origin, and 5 quantitative: engine displacement, horsepower, weight, acceleration, mpg.
-
 ### Univariate analysis
+The variable chosen for this analysis was the mpg or Miles Per Gallon. Let's take a closer look at it.
+```{r echo = FALSE, fig.height=4, fig.width=7, fig.align='center'}
+mpg <- as.numeric(cars$mpg)   
 
+x = mpg
+xbar = mean(x)
+S = sd(x)
+par(mfrow=c(1,2))
+hist(mpg, freq = FALSE, col = "grey")
+curve(dnorm(x,xbar,S),col = 2, add = TRUE)
 
+#looking for outliers and looking at the dispersion
+boxplot(mpg, ylab="Miles/(US) gallon")
 
+```
 
+```{r, echo=FALSE}
+## Mesures of central tendency
+stats<-stat.desc(mpg)
+kable(t(stats[4:14]), digits = 3) %>% kable_styling()
+#kewness test
+
+```
+
+```{r, warning = F, echo=FALSE, comment=NA}
+agostino.test(mpg)
+
+#Kurtosis test
+anscombe.test(mpg)
+
+#Normality test
+shapiro.test(mpg)
+```
+
+Looking at the histogram, by the significant right-handed tail, we can already say that the data is positively skewed. It may also be concluded by the relation between mean and median (median < mean). We proved this fact by conducting the D�Agostino skewness test with the 0.66, and given p-value, which lets us reject the null hypothesis and accept the alternative hypothesis, that data is skewed indeed. 
+On the other hand we see, that the data 'passes' the kurtosis test, and we cannot reject the hypothesis that the kurtosis value is equal to 3 (the normal distribution characteristic). In order to give the final statement on the distribution of the data we conduct the Shapiro-Wilk normality test. We reject the null hypothesis, since we obtained a very low p-value (0.0001004), and conclude that our data isn't of normal distribution.    
+In the end, we studied the dispersion of the data with the coefficient variation around 33%, and no outliers detected, based on the boxplot above.
+
+Next we tried to improve the normality of the data by applying Box-Cox tranformation. The lambda for the transformation we obtained:
+
+```{r echo = FALSE, comment=NA}
+# Power Transformations, Box-Cox transformation to improve normality
+powerTransform(mpg)
+#We make a variable transformation using lambda=-0.245
+mpg_transform=bcPower(mpg, lambda=-0.245)
+```
+
+The analysis of the dataset after transformation is given below.
+```{r, echo=FALSE, comment=NA, fig.height=4}
+#Comparing both qqplots
+par(mfrow=c(1,2))
+qqPlot(mpg, dist="norm", main = "MPG - original data")
+qqPlot(mpg_transform, dist="norm", main = "MPG - transformed data")
+par(mfrow=c(1,1))
+#Cheking improvement of normality
+
+#Skewness test
+agostino.test(mpg_transform)
+
+#Kurtosis test
+anscombe.test(mpg_transform)
+
+#Normality test
+shapiro.test(mpg_transform)
+
+```
+From the first qqPlot we can be sure that the distribution is not normal because of the slightly positive distribution and the soft nonpeaked distribution for the original data. 
+However, the transformation didn�t improve much the data normality as it is shown on the qqPlot on the right. We confirm our observation by conducting another set of kurtosis, skewness and normality tests. The transformation improved the skewness of the data, as we obtained the value closer to 0. Nonetheless, the data still fails two other tests, for kurtosis as well as final Shapiro-Wilk test for normality.
 
 ### Bivariate analysis
 ```{r include = FALSE}
 ## 1.2.b) Bivariate Analysis
 
-# histogram of cost variable
-
-## 1.2 b)
 # first we check univariate normality for chosen variables
-hist(cars$V4)
-hist(cars$V5)
+hist(cars$horsepower)
+hist(cars$weight)
 ```
 
 We start with basic scatterplot to see the distribution of the data for the two chosen variables, which are:  
-1. Horsepower (V4)  
-2. Weight (V5)
+1. Horsepower 
+2. Weight 
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align='center', fig.height=3}
 
 # scatter plot just to have a look on overall bivariate data distribution
-p1 <- ggplot(cars, aes(x=V5, y=V4)) + geom_point()
+p1 <- ggplot(cars, aes(x=weight, y=horsepower)) + geom_point()
 
 p1 + labs(title="Horsepower by weight", y="Horsepower", x="Weight")
 
 ```
 
-We observe the general positive relationship between the two variables, but by the given plot we cannot say anything about bivariate normality yet. What we can conclude by now, is we'll probably be dealing with some outliers in the data. 
-First of all we perform Mardia's multivariate normality test. 
+We observe the general positive relationship between the two variables, but by the given plot we cannot say anything about bivariate normality yet. What we can conclude by now, is we'll probably be dealing with some outliers in the data.  
 
-```{r, echo=FALSE}
+Next we perform Mardia's multivariate normality test. 
+
+```{r, echo=FALSE, comment=NA}
 # bivariate normality
-mvn(cbind(cars$V4,cars$V5), mvnTest="mardia", multivariatePlot="qq")
+beforTrans<-mvn(cbind(cars$horsepower,cars$weight), mvnTest="mardia")
+beforTrans$univariateNormality
+beforTrans$multivariateNormality
 ```
 
 As we can see both variables fail the univariate normality test. They also fail bivariate normality test, because of the skewness. 
 We try to apply the Box-Cox transformation so as to improve bivariate normality, with the parameters given below:
 
-```{r, echo=FALSE}
-powerTransform(cbind(cars$V4,cars$V5))
-bivT=bcPower(cbind(cars$V4,cars$V5), c(-0.079,0.46))
+```{r, echo=FALSE, comment=NA}
+powerTransform(cbind(cars$horsepower,cars$weight))
+bivT=bcPower(cbind(cars$horsepower,cars$weight), c(-0.079,0.46))
 ```
 
 After applying the transormation we conduct bivariate normality analysis the same way as before.
-```{r, echo=FALSE}
-afterTrans<-mvn(bivT, mvnTest="mardia", multivariatePlot="qq")
+
+```{r, echo=FALSE, comment=NA}
+afterTrans<-mvn(bivT, mvnTest="mardia")
 afterTrans$multivariateNormality
 ```
-As we can see, the normality has been improved as data after Box-Cox transform passes both tests, for kurtosis as well as for skewness.
+As we can see, the normality has improved as data after Box-Cox transform passes both tests, for kurtosis as well as for skewness.
 
 #### Outliers detection
 
 Another thing we want to conduct during our bivariate analysis is the outliers detection. To achieve this we use 'mvoutlier' package. Firstly, we apply 'pcout' method on the original dataset.
 
-```{r, echo=FALSE}
+```{r,echo=FALSE, out.width='.49\\linewidth', fig.width=7, fig.height=5,fig.show='hold',fig.align='center', comment=NA}
 
-outs=pcout(cbind(cars$V4,cars$V5), makeplot=TRUE)
+outs=pcout(cbind(cars$horsepower,cars$weight), makeplot=FALSE)
 outliersOrg<-which(outs$wfinal01==0)
-length(outliersOrg)
-```
-We detected 18 outliers in the original dataset based on the bivariate analysis, and it 
-We also applied the same method for the transformed dataset.
 
-```{r, echo=FALSE}
+invisible(symbol.plot(cbind(cars$horsepower,cars$weight), main="Outliers of the original data"))
+invisible(symbol.plot(bivT, main="Outliers of the transformed data"))
+
+
+```
+We detected 18 outliers in the original dataset based on the bivariate analysis. 
+
+```{r, include=FALSE, comment=NA}
 # outliers after transform 
-outsT=pcout(bivT, makeplot=TRUE)
+outsT=pcout(bivT, makeplot=FALSE)
 length(which(outsT$wfinal01==0))
 ```
 
-The dataset meeting bivariate normality criteria for chosen variables includes only 5 outliers, which are:
-```{r, echo=FALSE}
-cars[which(outsT$wfinal01==0),"V9"]
+Then we  applied the same method for the transformed dataset and found only 5 outliers, which are:
+
+```{r, echo=FALSE, comment=NA}
+kable(cars[which(outsT$wfinal01==0), c("name", "horsepower", "weight")]) %>% kable_styling(position = "center")
 ```
 ```{r, include=FALSE}
 
 carsNoOut<-cars[-outliersOrg,]
-mvn(cbind(carsNoOut$V4,carsNoOut$V5), mvnTest="mardia", multivariatePlot="qq")
+mvn(cbind(carsNoOut$horsepower,carsNoOut$weight), mvnTest="mardia", multivariatePlot="qq")
 ```
-As we analyzed, more than 18% of the original dataset has been classified as outliers. Depends on the type of each outlier and obviously the main objectivity of our analysis, sometimes we may consider outlier removal. In case of our dataset this is not an option, since it consists of only 99 observations.  
+
+As we analyzed, more than 18% of the original dataset has been classified as outliers. Depends on the type of each outlier, and obviously the main objectivity of our analysis, sometimes we may consider outlier removal. In case of our dataset this is not an option, since it consists of only 99 observations.  
 After normality improvement we qualified about 5% samples as the outliers, and none of them seems to be a typing mistake. They should be taken into account in further analysis.
 
+### Linear relationship between multiple variables  
+The variables chosen for this analysis were:  
+1.mpg  
+2.engine displacement  
+3.horsepower  
+4.weight  
+5.accelaration  
 
-### 1.2.2 Permutation test
-In this case we want to see relationship between the size of the bill and percent tip and we will use the permutation test to help us.
-We started to combine the values of both variables using the c function.
+```{r echo = FALSE}
 
+weight <- as.numeric(cars$weight)
+accelaration <-as.numeric(cars$acceleration)
+engiDisp <-as.numeric(cars$`engine displacement`)
+horsepower <-as.numeric(cars$horsepower)
+
+#Creation of a smaller table with the variables chosen
+aux_car <- cars[, c(1,3,4,5,6)]
+aux_car[,1] = as.numeric(cars$mpg)
+aux_car[,2] = engiDisp
+aux_car[,3] = horsepower
+aux_car[,4] = weight
+aux_car[,5] = accelaration
+```
+
+We start investigating linear relationship between variables by analyzing the correlation matrix and comparing the results with the partial correlation matrix.
+
+```{r include= FALSE}
+# Matrix of pairwise correlations
+r<-cor(aux_car)
+diag(r)=0
+which(r==max(abs(r)), arr.ind=TRUE)
+```
+```{r,echo=FALSE, out.width='.49\\linewidth', fig.width=13, fig.height=11,fig.show='hold',fig.align='center'}
+
+# Matrix of partial correlations
+matrix.partial=pcor(aux_car)$estimate
+corrplot.mixed(r, order="FPC" , title="Correlation matrix", mar=c(0,0,1,0))
+corrplot.mixed(matrix.partial, order="FPC", title="Partial correlation matrix", mar=c(0,0,1,0))
+
+```
+
+The strongest linear correlation we observe between 'weight' and 'engine displacement' (positive relation), which is equal to 0.91, although looking at the parial correlation between the two variables, we see that the estimate significantly drops. It means that the correlation between 'weight' and 'engine displacement' also relies on some other variable, which in this case is the 'horsepower', as we can conclude from the plot.
+
+We also analyzed coefficient of determination. 
+
+```{r echo = FALSE}
+# Coefficient of determination
+r2multv <- function(x) {
+  r2s = 1-1/(diag(solve(cov(x)))*diag(cov(x)))
+  r2s
+
+}
+```
+```{r echo = FALSE}
+kable(r2multv(aux_car), caption = "Coefficient of determination", digits = 3, longtable = T) 
+```
+
+From this data we can say that engine displacement is the best linearly explained by others (R^2 = 0.91), followed by weight (R^2 = 0.89) and horsepower (R^2 = 0.86). The worst linearly explained by the others is acceleration (R^2 = 0.67), which is still the high value, meaning that the relation between all of the variables is pretty strong. This conclusion is easily proved by the determinant of the correlation matrix given below.
+
+```{r echo = FALSE, comment=NA}
+#The determinant of R (correlation matrix)
+det(cor(aux_car))
+```
+
+The determinant of the correlation matrix is low enough to say that the linear pairwise correlation between variables is strong, but there is none of the is a linear combination of the other (det not equal to 0).
+
+The last part of our experiment is the Eigenanalysis. The eigen values and the corresponding eigen vectors are given below.
+
+```{r echo = FALSE, fig.height=4, fig.width=4, fig.align="center"}
+#An eigenanalysis of matrix R
+ev<-eigen(cor(aux_car))
+kable(rbind(ev$values, ev$vectors), digits = 3) %>% row_spec(0, bold = T) %>% kable_styling(position = "center")
+eigenAnalysis <- princomp(cor(aux_car), cor = TRUE)
+screeplot(eigenAnalysis, npcs = 5, type = "lines")
+```
+We can observe that the variables mostly involved in the overall linear dependence are 'engine displacement' and 'weight', because their variances are high in the least significant component (the one with the lowest eigenvalue). We already know that these two variables are also mostly explained by other variables and even mostly correlated.
+At the end of our Cars dataset analysis, we wanted to indicate how many components we would use in the case of the necessity of dimentionality reduction. We used the simple 'elbow rule', and looking at the plot above, we see that when choosing only 2 main components, we could still represent our data without the significant loss of information. 
+
+## Restaurant Tips Dataset
+### Permutation test
+In this case we want to see relationship between the size of the bill and tip percent.
+First of all, we try to investigate this relationship by visualization. 
 ```{r, include=FALSE}
+load("RestaurantTips.rda")
+
+p2<-ggplot(RestaurantTips, aes(x=Bill, y=PctTip)) +geom_point()
+p2 + labs(title="Percent of tip by total bill amount")
+
 #R -> number of simulations
 nSimulations <- 10000
 
@@ -143,14 +307,16 @@ labels <- c(rep(1,length(RestaurantTips$Bill)),rep(0,length(RestaurantTips$PctTi
 diffs <- rep(NA,nSimulations)
 nR <- rep(NA,nSimulations)
 ```
-**##Results:**
-Observed correlation between the variables (**Bill** and **PctTip**): 
+Looking at the scatterplot given above we cannot actually say much about the correlation between these two variables. In order to analyze it, we conducted a permutation test running 1000 simulations.
+
+We analyze the observed correlation between the variables (**Bill** and **PctTip**) by the histogram given below. 
 ```{r, include=FALSE}
 cor.test(RestaurantTips$Bill,RestaurantTips$PctTip, method ="pearson")
 
 #Correlation value of the variables
 rObs <- cor(RestaurantTips$Bill,RestaurantTips$PctTip, method ="pearson")
 rObs
+
 #permutation test
 for(i in 1:nSimulations){
   shuffled_labels <- sample(labels, replace = FALSE)
@@ -158,28 +324,53 @@ for(i in 1:nSimulations){
   nR[i] <- cor(combined_scores[shuffled_labels == 1],combined_scores[shuffled_labels == 0])
 }
 ```
-After calculating the value of the correlation between the two variables we started to execute the permutation test and for that we have calculated the correlation values for each step between the variables mentioned before. We ran the test 10000 times to see how the correlation values were changing. To help us understanding the real relation we have calculated also the difference of the mean values for each step. We had the following result:
 ```{r, include=FALSE}
 #Histogram
 hist(diffs)
 ```
+
 The following histogram represents the different values of the correlation between the variables after the permutation test
-```{r, include=FALSE}
-hist(nR)
+
+```{r, echo=FALSE, fig.width=3, fig.height=3, fig.align="center"}
+hist(nR, xlab = "Pearson correlation", main="Permutation test")
 ```
+
 Using the vector of the correlation values calculated before was possible to do the test described in the exercise sheet (upper-tail test). The upper-tail test is a statistical test in which the critical area of a distribution is one-sided so that it is either greater than or less than a certain value, but not both. 
-We reach the following value:
+We obtained the following value:
+
 ```{r, include=FALSE}
 #upper-tail test p-value
 sum(nR>rObs)/nSimulations
 ```
-**##Analysis: **
-With only the first correlation value obtained (0.1352976) we can conclude that the two variables have a weak association. After executing the permutation test (we can see in the difference histogram) that the difference of the mean value of each variable falls over most of the time (not always) near zero. With this we assume that the values are frequently similar, with some exceptions. 
-When we look to the correlation values obtained do the test we can see that the values never exceed the value **0.4** (positive way) neither **-0.2** (negative way). Supported with the following figure, the values obtained with the permutation test infer that the “Strength of Association” is small. This means that both variables are poorly linear related.
 
-![](/IDA/corre.png)
+When we look at the correlation values obtained through the test we can see that the values never exceed the value **0.4** (positive way) neither **-0.2** (negative way). Supported with the following figure, the values obtained with the permutation test infer that the strength of the association is small. 
+ 
+We ran the analysis once again excluding the bills with the tip above 30%, as we believe those generous customers might be considered as outliers. The histogram of correlation coefficients for this experiment is given below.
 
-Our final test was the upper-tailed test and we obtained the p-value 0.4347. We took the vector of correlation values obtained and counted the number of values greater than the original correlation value (rObs), over the number of simulations (10000). 
-With this p-value (relatively large) we assume that there is a weak evidence against the null hypothesis, so we fail to reject the null hypothesis.
- Said this, we conclude that the value of the tip isn’t related to how much a customer spends on a bill.
+```{r, echo=FALSE,fig.width=3, fig.height=3, fig.align="center"}
 
+RestaurantTips<- subset(RestaurantTips, PctTip<30)
+combined_scores <- c(RestaurantTips$Bill,RestaurantTips$PctTip)
+
+#Represent each variable value with a label (1 to Bill and 0 to PctTip)
+labels <- c(rep(1,length(RestaurantTips$Bill)),rep(0,length(RestaurantTips$PctTip)))
+
+#Initialize the diffs and nR vector
+diffs <- rep(NA,nSimulations)
+nR <- rep(NA,nSimulations)
+#permutation test
+for(i in 1:nSimulations){
+  shuffled_labels <- sample(labels, replace = FALSE)
+  diffs[i]<- mean(combined_scores[shuffled_labels == 1]) - mean(combined_scores[shuffled_labels == 0])
+  nR[i] <- cor(combined_scores[shuffled_labels == 1],combined_scores[shuffled_labels == 0])
+}
+
+hist(nR, xlab = "Pearson correlation", main = "Permutation test without outliers")
+pvalnoOut<-sum(nR>rObs)/nSimulations
+```
+
+After outliers removal we can observe the slight shift to positive correlation between variables, as now the peak of our histogram fails closer to 0.2. 
+
+In order to state our final conslusion we conducted the upper-tailed test and we obtained the p-value equal to **0.4347** for the original data and **0.5585** after outliers removal.
+There is a weak evidence against the null hypothesis, so we fail to reject it.
+To sum it up, we cannot say that percentage of the tips and the total amount of bill is not correlated, althogh this association isn't strong. 
