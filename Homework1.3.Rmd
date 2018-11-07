@@ -1,0 +1,102 @@
+###Car dataset
+##Principal Component Dataset
+```{r, include=FALSE}
+install.packages("devtools")
+install.packages("ggbiplot")
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+library(cluster)
+library(fpc)
+install.packages('tidyverse')
+library(tidyverse)  # data manipulation
+library(cluster)    # clustering algorithms
+library(factoextra)
+
+df <- read.table("/Users/ASUS/Documents/R/Homework3/cars-PCA.txt",header = FALSE)
+
+names<- df[,9]
+
+matrix <- df[1:7]
+ 
+origin <- df[8]
+
+
+colnames(matrix)[1] <- "mpg"
+colnames(matrix)[2] <- "cylinders"
+colnames(matrix)[3] <- "engine displacement"
+colnames(matrix)[4] <- "horsepower"
+colnames(matrix)[5] <- "weight"
+colnames(matrix)[6] <- "acceleration"
+colnames(matrix)[7] <- "model year"
+
+for (i in 1:nrow(origin)){
+  if(origin[i,1] == 1){
+    origin[i,1] <- "US"
+    }
+  else if(origin[i,1]==2){
+    origin[i,1] <- "EU"
+  }
+  else{
+    origin[i,1] <-"Japan"
+  }
+}
+
+
+
+```
+Firstly we started by formating the dataset to compute the Principal Components (we excluded the non-numerical ones, because PCA works better with numerical variables).
+```{r, include=FALSE}
+pca<-prcomp(matrix, center = TRUE,scale. = TRUE)
+```
+
+After that we obtained the following information:  
+```{r, echo=FALSE, fig.width=3, fig.height=3, fig.align="center"}
+summary(pca)
+```
+
+This tells us that there are 7 principal components. Each of these values explains a percentage of the total variation of the all data. Is clearly visible that PC1 and PC2 have the major part of the variation (PC1   ???? 43% and PC2   ???? 20%). Summed reaches more than the half of the variation.
+
+```{r, include=FALSE}
+plot(pca$sdev,xlab = "PC",ylab = "Variation") 
+
+```
+
+To get a better accuracy of the analysis of the Principal Components we have plotted the results of the PCA formula in RStudio.
+
+```{r, echo=FALSE,fig.width=3, fig.height=3, fig.align="center"}
+ggbiplot(pca ,ellipse=TRUE, groups = origin[,1])
+```
+
+This plot tells us many important things about the Principal Component Analysis. First, the arrows indicate the intensity of variation of each variable. The group appear divided in two, with 3 variables contributing for the value of PC1 (model year, acceleration and mpg) and 4 contributing for the value of PC2 (variables horsepower, cylinders, weight and engine displacement). 
+We used other "tool" to help us understanding the true meaning of the results and this tool was used to create areas for each region of the origin of each car (USA, Europe and Japan). With this distinction we can see and understand how the origin of the car influences the composition of each car (variables). For example, with this we can see that American cars are characterized for higher *horsepower* values, *number of cylinders*, *weight* and *engine displacement* than other countries. European cars, for example, have cars with higher values for *mpg* (miles per gallon) and Japanese ones with higher values for acceleration.
+It's possible to plot different Principal Components instead the 1st and 2nd but we rather present the most influent ones onto the context and objective of the exercise, since the other components don't represent relevant values for analysis. 
+
+##K-Means
+K-Means algorithm is a clustering algorithm that clusters points by their similarity, such that objects within the same cluster are as similar as possible, while objects from different clusters are as dissimilar as possible.
+In this part of the exercise we started to compute the K-Means algorithm to see the it's behavior onto the two Principal Components of the dataset. 
+
+```{r, include=FALSE}
+set.seed(12345)
+kmeans <- kmeans(matrix,centers = 3, nstart = 25, iter.max = 100)
+```
+We obtained the following results:
+```{r, include=FALSE}
+set.seed(12345)
+kmeans <- kmeans(matrix,centers = 3, nstart = 25, iter.max = 100)
+p2 <- fviz_cluster(kmeans, geom = "point",  data = matrix) + ggtitle("k = 3")
+
+p2
+ggbiplot(pca ,ellipse=TRUE, var.axes=FALSE, groups = origin[,1])
+```
+The top figure shows the result of the clustering algorithm on the dataset and the bottom one the PCA algorithm, grouped by origin of the cars. It's visible that the points from the bottom figure have changed relatively their position, comparing with the results of the K-Means. The big difference between both plots are that they don't fit very well.
+Once the K-Means algorithm groups the points by their similarity it's safe to say that even if a car is made in the same place then other it doesn't mean that the cars are alike, this is, the origin doesn't always mean that the cars are similar, though there are some exceptions.
+The last part was taking out of the data the only car that has number of cylinders equal to 3 and run the PCA process again, taking care with the change of the categorical variable (now it's the number of cylinders). We ran the PCA algorithm to see how the all data was agglomerated in terms of number of cylinders per car. 
+After that we executed the K-Means algorithm one more time with the actualized dataset and we have got the following result:
+```{r, include=FALSE}
+ggbiplot(newPca ,ellipse=TRUE, var.axes=FALSE, groups = cylinders[,1] )
+p3 <- fviz_cluster(newKmeans, geom = "point",  data = newMatrix) + ggtitle("k = 3 with new data")
+p3
+```
+It is notorious that the cluster obtained by the K-Means algorithm (top figure) it's very similar with the ellipsoids obtained with the PCA (bottom figure) onto the number of cylinders. As explained before, the K-Means algorithm agglomerates in such way that objects within the same cluster are as similar as possible. 
+From this data, we can admit that the most similar cars in our data set are those that have the same number of cylinders, when comparing the similarities that the cars have when observing their origin.
