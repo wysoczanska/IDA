@@ -1,0 +1,71 @@
+---
+title: "Homework 1.2 Report"
+output:
+  
+  pdf_document: 
+    df_print: kable
+  word_document: default
+  html_document: default
+---
+<center>
+#### Monika Wysoczanska, 180817
+#### Manuel Barbas, 180832
+#### Diogo Oliveira, 180832\
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library("kableExtra")
+library("moments")
+library(pastecs)
+library(ggplot2)
+library("dplyr")
+library(GGally)
+```
+##Wine Data Set
+
+
+```{r, include=FALSE}
+
+wines<-read.table("wines-PCA.txt", col.names = c("fixed acidity", "volatile acidity", "citic acid", "residual sugar", "chlorides", "free sulfur dioxide", "total sulfur dioxide", "density", "pH", "sulphates", "alcohol", "quality", "type"))
+wines<-na.omit(wines)
+summary(wines)
+str(wines)
+
+```
+We have 98 observations of different wines, same number for both types: white and red. Each observation described by 12 quantitative variables and one categorical. 
+
+
+```{r, include=FALSE}
+wines$type<-as.factor(wines$type)
+wines.pc<- select(wines, -quality)
+
+
+#covariance matrix
+cor(select(wines.pc, -type))
+```
+We observe very different variances, because of that for further analysis we use correlation matrix.
+
+```{r, include=FALSE}
+#correlation matrix)
+cor(select(wines.pc, -type))
+```
+
+```{r, echo=FALSE}
+
+ggpairs(wines.pc, lower = list(continuous="points",combo="facetdensity",mapping=aes(color=type)))
+
+```
+In the combined plot above we already see, that:
+1. The data is not probably normally distributed among nearly all of the variables (except fixed acidity).
+2. The variance of density is very small, then we cannot observe any significant correlation with other variables. Moreover, we are likely to deal with the outlier. 
+We investigated the outlier a little bit deeper, and found that there is only one observation with a very high density value (10.02), which is:
+```{r, include=FALSE}
+boxplot(wines$density)
+which(wines$density>1.5)
+
+```
+```{r}
+wines[15,]
+
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
