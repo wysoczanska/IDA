@@ -1,3 +1,125 @@
+---
+title: "Homework 1.2 Report"
+output:
+  
+  pdf_document: 
+    df_print: kable
+  word_document: default
+  html_document: default
+---
+<center>
+#### Monika Wysoczanska, 180817
+#### Manuel Barbas, 180832
+#### Diogo Oliveira, 180832\
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library("kableExtra")
+library("moments")
+library(pastecs)
+library(ggplot2)
+library("dplyr")
+library(GGally)
+library(FactoMineR)
+library(factoextra)
+```
+##Wine Data Set
+
+
+```{r, include=FALSE}
+
+wines<-read.table("wines-PCA.txt", col.names = c("fixed acidity", "volatile acidity", "citic acid", "residual sugar", "chlorides", "free sulfur dioxide", "total sulfur dioxide", "density", "pH", "sulphates", "alcohol", "quality", "type"))
+wines<-na.omit(wines)
+summary(wines)
+str(wines)
+
+```
+We have 98 observations of different wines, same number for both types: white and red. Each observation described by 12 quantitative variables and one categorical. 
+
+
+```{r, include=FALSE}
+wines$type<-as.factor(wines$type)
+wines.pc<- select(wines, -one_of(c("quality", "type")))
+
+
+#covariance matrix
+cor(wines.pc)
+```
+NOTE: On the covariance matrix we observed very different variances, and because of that for further analysis we used the correlation matrix.
+
+```{r, include=FALSE}
+#correlation matrix)
+cov(wines.pc)
+```
+
+```{r, echo=FALSE}
+
+ggpairs(select(wines, -quality), lower = list(continuous="points",combo="facetdensity",mapping=aes(color=type)))
+
+```
+In the combined plot above we already see, that:
+1. The data is not probably normally distributed among nearly all of the variables (except fixed acidity).
+2. The variance of density is very small, then we cannot observe any significant correlation with other variables. Moreover, we are likely to deal with the outlier. We investigated the outlier a little bit deeper, and found that there is only one observation with a very high density value (10.02), which is:
+```{r, include=FALSE}
+boxplot(wines$density)
+which(wines$density>1.5)
+
+```
+
+```{r, echo=FALSE}
+wines.pc[15,]
+
+```
+As we cannot precisely indicate what kind of error this is, for the following analysis we treat this value as NA. Package factoMiner will impute the value by the mean of the variable.
+
+Next we performed PCA analysis considering 4 main components. The variables factor map for 2 first components is depicted below.
+```{r, echo=FALSE}
+# pca with outlier detected
+wines.pc.nout<- select(wines, -quality)
+wines.pc.nout[15,8]<-NA
+wines_pca_r=PCA(wines.pc.nout,quali.sup=12,ncp=4,scale.unit=TRUE, graph=FALSE)
+
+
+```
+We can see the high correlation of total.sulfur.dioxide, which is close to being an illustrative variable of the first component. When it comes to the second component there is no such variable.
+
+
+```{r, echo=TRUE}
+wines_pca_r$eig
+wines_pca_r$var$contrib 
+
+```
+After further analysis we discovered that first 4 components explain 77% of total variance of the data, with the first component explaining over 31%. We also see, that the biggest contribution to each component give (in the components order): total.sulfur.dioxide, density, citic.acid, chlorides. 
+
+Apart from total.sulfur.dioxide the other important variable in the first component is free.sulfur.dioxide, but also volatile.acidity. The first two chemical substances are very important throughout all winemaking process and preserve the product from going off. The latter indicates if the wine flavor resembles a vinegar acid taste, with the negative correlation. We could call the first principal component a 'freshness', meaning if the observation is high in the first component has a fresh taste, far from vinegar acidness.
+The second component with the significant contribution of: density, alcohol, residual.sugar, pH may describe wine's 'heaviness', as higher value would indicate heavier wines.
+
+Now we try to check wheter any of the first 2 components can separate wines by their "type" by exploring plot given below.
+
+```{r, echo=FALSE}
+fviz_pca_ind(wines_pca_r,  label="none", habillage=wines$type, palette = c("blue", "red"))
+```
+
+We see that the first principal component may seperate wines quite accurately. White wines (1 - blue dots) tend to be lighter and be fresh in taste, as we defined the first component before.
+When it comes to the second component, we don't observe any good separation between 2 types.
+```{r, echo=FALSE}
+library(plyr)
+wines.pc$quality<-revalue(as.factor(wines$quality), c("4"="low", "5"="low", "6"="medium", "7"="high", "8"="high"))
+wines.pc[15,8]<-NA
+wines_pca_r=PCA(wines.pc,quali.sup=12,ncp=4,scale.unit=TRUE, graph=FALSE)
+fviz_pca_ind(wines_pca_r,  label="none", habillage=wines.pc$quality)
+
+
+```
+Similarliy as before we do not observe any significant correlation in the second PC. However, we may say that low quality wianes tend to be lower in first component than medium ones. We could also say that high quality wines are more 'balanced' in the defined components as: 'freshness' and 'heaviness, as they tend to appear more in the center of the plot. 
+
+```{r, echo=FALSE}
+fviz_pca_var(wines_pca_r)
+```
+Finally, we present the circle of correlations of all variables. We cannot indicate any specific illustrative variables as there is no highly correlated to any of the two PC's. We can see the visual confirmation of our interpretation of the first PC, as preservatives and citric acid influence the freshness of wine while volatile acidity is negatively correlated with them.
+
+In conclusion, wine production seems to be a challenging process, as there is no simple recipe for a good quality product. The interesting fact is that, there are other indicators influencing the quality of wine, not only sugar. Maybe apart from 'sweetness' it's time to add another factor on wine bottles.
+
 ###Car dataset
 ##Principal Component Dataset
 ```{r, include=FALSE}
