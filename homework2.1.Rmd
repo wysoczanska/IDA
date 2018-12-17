@@ -1,0 +1,81 @@
+---
+title: "Homework 2.1 Report"
+output:
+  
+  pdf_document: 
+    df_print: kable
+  word_document: default
+  html_document: default
+---
+<center>
+#### Monika Wysoczanska, 180817
+#### Manuel Barbas, 180832
+#### Diogo Oliveira, 180832\
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library("kableExtra")
+library("moments")
+library(pastecs)
+library(ggplot2)
+library("dplyr")
+library(GGally)
+library(FactoMineR)
+library(factoextra)
+library(car)
+```
+##1
+```{r, include=FALSE}
+db <- read.table("C:/Users/ASUS/Documents/R/Homework4/HW-diamonds.txt", header = FALSE)
+colnames(db)[1] <- "Caratage"
+colnames(db)[2] <- "Purity"
+colnames(db)[3] <- "Clarity"
+colnames(db)[4] <- "Certificate"
+colnames(db)[5] <- "Price"
+newData <- db[2:5]
+
+lm1w=lm(formula = Price ~ Caratage,data=db)
+summary(lm1w) 
+lm2w=lm(formula = log(Price) ~ Caratage,data=db)
+summary(lm2w)
+
+```
+
+For the first plot, where the response variable is "price", the parameters for this model are ??^0 = -2298.4 and ??^1 = 11598.9. The fitted line model is y^i = -2298.4 + 11598.9xi.
+The mean price for a diamond increases 11598.9 for each caratage. It's also shown that the residual standard error it is high value, 1118. This means that the standard deviation of points formed around the linear function it's considerable high.
+On the second fitted plot, where the response variable is "log(price)", it's possible to verify a big drop of the values. The ??^0 = 6.44488 and ??^1 = 2.84155, meaning that the fitted line model is y^i = 6.44488 + 2.84155xi.
+For this second plot the mean price for a diamond increases 2.84155 for each caratage and the residual standard error it's much lower than the value on the first plot, with 0.2071.
+We can conclude that the use of log(price) as the response variable it's better to analyze the relation between price and caratage, because the residual standard error value it's much lower on the second one, meaning that the accuracy of the variable it's higher. 
+Having all this in consideration we can conclude that it's safer to use log(price) as response variable, since the variable allow us to be more sure about that the results we could get.
+
+
+##2
+
+In this point we want to build a model for estimating the price based on several categorical variables, and this variables are caratage (most relevant), clarity, color and certificate. As the question says, we want to see which categorical variable, besides caratage, can be suitably included in this context. 
+
+For this we started to compute the multiple linear regression to the dataset (excluding caratage variable), and we have got the following results:
+
+```{r, include=FALSE}
+fit <- lm(newData$Price ~ newData$Purity + newData$Clarity + newData$Certificate, data=newData)
+summary(fit)
+
+```
+We started to interpret the p-value associated with the F-statistic. The value that we get from this specific case is < 2.2e-16, which tells us that is a very strong evidence against the null hypothesis, this is, it's highly significant. With this we can conclude that in the set of the categorical variables analyzed (Purity, Clarity and Certificate), one of them is strongly related to the outcome one (price).
+To check which variables are important, we need to see the table that shows us the list of coefficients and we can access it through the following command:
+
+
+```{r, include=FALSE}
+fit$coefficients
+
+```
+Multiple Linear Regression is an extension of the simple linear regression and is used to predict an outcome variable based on multiple distinct predictor variables. This regression constructs the following equation: 
+y = b0 + b1 . x1 + b2 .x2 + b3 . x3
+The b', as known as weights (beta coefficients), measure the association between the predictor variable and the outcome.
+As explained in the statement, we will use the worst level of each categorical variable as the reference category and HRD for certification institution, so:
+![](C:/Users/ASUS/Desktop/hw22.png)
+This is the result of the application of the multiple linear regression onto the worst level of each categorical variable and so we can build the regression equation:
+y = 7311.4 - 23193.6 . x1 + 681.5 . x2 + 1872.7 . x3
+
+The intercept, in this example, is essentially the expected value of the price considering that the predict values are Purity, Clarity and Certificate, in the average values of all stones in the dataset. In other words, there is an average price in our dataset of 7311.39 considering all multiple predict values enunciated before.
+The other rows show us the impact that those variables have on the price of each stone. With this we can assume that the variable that has more influence in the price is the Certificate (HRD). Other way to see this is checking the Standard Error that measures the average amount that the coefficient estimates vary from the actual average value of our response variable (price), this is, we want it to be smallest as possible and the variable that as the smallest value in this field is the Certificate HRD.
+
