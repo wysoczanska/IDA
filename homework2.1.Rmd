@@ -10,7 +10,7 @@ output:
 <center>
 #### Monika Wysoczanska, 180817
 #### Manuel Barbas, 180832
-#### Diogo Oliveira, 180832\
+#### Diogo Oliveira, 180832
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(knitr)
@@ -22,60 +22,189 @@ library("dplyr")
 library(GGally)
 library(FactoMineR)
 library(factoextra)
+library(gridExtra)
+library(lmtest)
+library(tseries)
 library(car)
 ```
-##1
 ```{r, include=FALSE}
-db <- read.table("C:/Users/ASUS/Documents/R/Homework4/HW-diamonds.txt", header = FALSE)
+db <- read.table("HW-diamonds.txt", header = FALSE)
 colnames(db)[1] <- "Caratage"
 colnames(db)[2] <- "Purity"
 colnames(db)[3] <- "Clarity"
 colnames(db)[4] <- "Certificate"
 colnames(db)[5] <- "Price"
-newData <- db[2:5]
-
-lm1w=lm(formula = Price ~ Caratage,data=db)
-summary(lm1w) 
-lm2w=lm(formula = log(Price) ~ Caratage,data=db)
-summary(lm2w)
-
+db$log_price <- log(db$Price)
+head(db)
 ```
 
-For the first plot, where the response variable is "price", the parameters for this model are ??^0 = -2298.4 and ??^1 = 11598.9. The fitted line model is y^i = -2298.4 + 11598.9xi.
-The mean price for a diamond increases 11598.9 for each caratage. It's also shown that the residual standard error it is high value, 1118. This means that the standard deviation of points formed around the linear function it's considerable high.
-On the second fitted plot, where the response variable is "log(price)", it's possible to verify a big drop of the values. The ??^0 = 6.44488 and ??^1 = 2.84155, meaning that the fitted line model is y^i = 6.44488 + 2.84155xi.
-For this second plot the mean price for a diamond increases 2.84155 for each caratage and the residual standard error it's much lower than the value on the first plot, with 0.2071.
-We can conclude that the use of log(price) as the response variable it's better to analyze the relation between price and caratage, because the residual standard error value it's much lower on the second one, meaning that the accuracy of the variable it's higher. 
-Having all this in consideration we can conclude that it's safer to use log(price) as response variable, since the variable allow us to be more sure about that the results we could get.
+# Question 1
+```{r, echo=FALSE}
+G1<-ggplot(db,aes(x=Price, y=Caratage)) + geom_point() + geom_smooth(method = "lm")
+G2<-ggplot(db,aes(x=log(Price), y=Caratage)) + geom_point() + geom_smooth(method = "lm")
+grid.arrange(G1,G2,ncol=2)
+```
+```{r, echo=FALSE}
+cor(db$Price, db$Caratage)
+cor(db$log_price, db$Caratage)
+```
+Looking at the plots above, we can observe the logaritmic transformation 'normalizes' the realtion between the two variables, meaning it seems to be more linear. The correlation between log_price and Caratage is also positively higher than between Price and Caratage. Since our goal is to deploy a Linear Regression Model, this is the transformation we would apply. 
 
+#QUestion 2
 
-##2
-
-In this point we want to build a model for estimating the price based on several categorical variables, and this variables are caratage (most relevant), clarity, color and certificate. As the question says, we want to see which categorical variable, besides caratage, can be suitably included in this context. 
-
-For this we started to compute the multiple linear regression to the dataset (excluding caratage variable), and we have got the following results:
+```{r, echo=FALSE}
+db$Purity=relevel(db$Purity, ref="I")
+db$Clarity = relevel(db$Clarity, ref="VS2")
+db$Certificate= relevel(db$Cert, ref="HRD")
+```
 
 ```{r, include=FALSE}
-fit <- lm(newData$Price ~ newData$Purity + newData$Clarity + newData$Certificate, data=newData)
-summary(fit)
+lm1<- lm(log_price ~ Caratage + Purity + Clarity + Certificate, data=db)
 
 ```
-We started to interpret the p-value associated with the F-statistic. The value that we get from this specific case is < 2.2e-16, which tells us that is a very strong evidence against the null hypothesis, this is, it's highly significant. With this we can conclude that in the set of the categorical variables analyzed (Purity, Clarity and Certificate), one of them is strongly related to the outcome one (price).
-To check which variables are important, we need to see the table that shows us the list of coefficients and we can access it through the following command:
+The summary of the obtained model is presented below.
+```{r, echo=FALSE}
+summary(lm1)
+```
+It can be seen that p-value of the F-statistic is < 2.2e-16, which is highly significant - at least one of the predictor variables is significantly related to the outcome variable.
+Looking deeper, we can observe that there is indeed a significant association between all of the explanatory variables and log_price, besides 'CertificateGIA'. \\
+```{r, include=FALSE}
+100*(exp(lm1$coeff)-1)
+```
+Leaving only our reference variables, the cost of the diamond is 436 Singapore Dollars. Every one unit of caratage increase results in 17 dollars total price increase.
+One level higher in Purity, which is 'PurityH' increases the total price of 14%, leaving the rest of variables the same. In comparison, the diamond having the highest Purity rank results in almost 52% price increase.
+The interesting observation on Clarity of a given stone, is the difference between the percentage of price increase of VVS1 and Internal Flawless (which is the highest possible) is only around 0.1 point percent.
+We can also conclude that Certificate IGI means less than our base HRD Certificate in terms of price as it results in almost 16% decrease in total price, leaving the rest variables the same.
+### Model plots
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+plot(lm1, which=c(1:4), ask=F)
+```
+The residuals behaviour is not constant, in fact it resembles a bit of a parabole - quadratic function. 
+When it comes to outlier analysis we detected 3 major ones (by Cook's distance) which are 110, 214, 223 and also 211 appearing on each one of the plots. We conduct Bonferonni test for outlier detection.
+```{r, echo=FALSE}
+outlierTest(lm1, cutoff=0.05)
 
+```
+The test revealed that the actual outlier is example 211, so we :
+
+```{r, echo=FALSE}
+outlierTest(lm1, cutoff=0.05)
+db[211,]
+```
+### Residuals normality
+We also check residuals normality by applying Jarque Bera Test.
+```{r, echo=FALSE}
+jarque.bera.test(lm1$residuals)
+```
+The p-value being <0.05 for this normality test makes us reject the null hypothesis and state that residuals are not normally distributed.
+
+### Constant variance
+
+```{r, echo=FALSE}
+bptest(lm1)
+```
+The test on constant variance of the residuals results in the fail of homogenity hypothesis and leaves us with the conclusion that the variance is not constant.
+
+### Independence of the residuals
+
+```{r, echo=FALSE}
+lag.plot(lm1$residuals)
+dwtest(lm1)
+```
+We conducted a Durbin-Watson test for residuals' autocorrelation and rejected the null hypothesis, leaving conclusion that it is greater than 0.
+
+#Question 3 
+We create a new variable based on Caratage and assign 'small' as a reference level for the next model.
+```{r, echo=FALSE}
+levels = c(0,0.5,1,Inf)
+db$Caratage_cat <- cut(db$Caratage, levels, c('small', 'medium', 'large'))
+head(db)
+db$Caratage_cat<- relevel(db$Caratage_cat, ref='small')
+
+```
+
+Now we feed the model with our new variable as well as with the interaction term between this new variable and caratage.
+
+```{r, echo=FALSE}
+lm2 = lm(formula = log_price ~ Caratage + Purity + Clarity + Certificate + Caratage_cat + Caratage:Caratage_cat, data = db)
+summary(lm2)
+```
+For this particular model there is no significant difference between all of the certificates in terms of diamond price. Let's take a look at residuals.
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+plot(lm2, which=c(1:4), ask=F)
+```
+Judging only by plots, we assume that residuals still don't behave the way we wanted them to behave, meaning they probably fail all of the tests for assumptions of linear
+regression. We want to make sure about that.
+
+```{r, echo=FALSE}
+jarque.bera.test(lm2$residuals)
+```
+Our new model actually passes the test for residuals normality with the p-value of Jarque Bera Test above 0.05.
+```{r, echo=FALSE}
+outlierTest(lm2, cutoff=0.05)
+```
+We detected new outlier for this model. We also check the constant variance assumption and independence of residuals.
+
+```{r, echo=FALSE}
+bptest(lm2)
+```
+
+```{r, echo=FALSE}
+dwtest(lm2)
+```
+As we assumed, residuals of our new improved model fail the constant variance test and homogenity tests.
+
+### Interpretation of medcar
+```{r, include=FALSE}
+100*(exp(lm2$coeff)-1)
+```
+ Leaving the rest the same, having a diamond from medium caratage cluster the price rises 189%, but then for each carat unit price decreases about 87% comparing to our reference 'small' cluster. In case of 'large' cluster, initially price increases almost 940% but for each caratage unit price decreases 96% comparing to 'small' cluster. We conclude that each caratage unit increase is highly valued for diamonds only up to 0.5 caratage ('small' cluster). By includin cluster variable we definitely introduced some kind of bias, which makes the model harder to interpret.
+ 
+## Clarity vs Purity
+```{r, include=FALSE}
+mean(c(0.315793, 0.067530, 0.213448, 0.132373))
+mean(c(0.436261,0.350912,0.275010,0.191449,0.111067))
+```
+At the first glance it seems like Purity is higher valued than Clarity having the model's coefficient generally higher. Nevertheless, we compute the mean of coefficients and assure our observation having 0.27 for Clarity vs 0.18 of Purity average increase in log price (leaving the rest variables the same).
+
+## Average price difference between grade D and higher
 
 ```{r, include=FALSE}
-fit$coefficients
+db$Purity<-relevel(db$Purity, ref='D')
+lm21 = lm(formula = log_price ~ Caratage + Purity + Clarity + Certificate + Caratage_cat + Caratage:Caratage_cat, data = db)
+100*(exp(lm21$coeff)-1)
 
 ```
-Multiple Linear Regression is an extension of the simple linear regression and is used to predict an outcome variable based on multiple distinct predictor variables. This regression constructs the following equation: 
-y = b0 + b1 . x1 + b2 .x2 + b3 . x3
-The b', as known as weights (beta coefficients), measure the association between the predictor variable and the outcome.
-As explained in the statement, we will use the worst level of each categorical variable as the reference category and HRD for certification institution, so:
-![](C:/Users/ASUS/Desktop/hw22.png)
-This is the result of the application of the multiple linear regression onto the worst level of each categorical variable and so we can build the regression equation:
-y = 7311.4 - 23193.6 . x1 + 681.5 . x2 + 1872.7 . x3
+Setting 'D' grade as our reference we observe on average diamond graded 'I' price is 35% lower than of those the highest graded. When it comes to 'E' grade it's on average 8% lower than 'D' grade (leaving the rest the same).
 
-The intercept, in this example, is essentially the expected value of the price considering that the predict values are Purity, Clarity and Certificate, in the average values of all stones in the dataset. In other words, there is an average price in our dataset of 7311.39 considering all multiple predict values enunciated before.
-The other rows show us the impact that those variables have on the price of each stone. With this we can assume that the variable that has more influence in the price is the Certificate (HRD). Other way to see this is checking the Standard Error that measures the average amount that the coefficient estimates vary from the actual average value of our response variable (price), this is, we want it to be smallest as possible and the variable that as the smallest value in this field is the Certificate HRD.
+## Price differences amongst Certificates
+The significance t-test revealed that particular certificats do not impact our response variable. Moreover, having certificate 'HDR' as our reference we observe slight differences, such as 0.6% increase in price when particualar diamond is certified with 'GIA' rather than 'HDR', and decrease of around 1.8% for 'IGI', leaving us with the conclusion, that there are no significant differences amongst Certificates.
 
+#3b - Including squared carat
+
+```{r, echo=FALSE}
+lm3 = lm(formula = log_price ~ Caratage + I(Caratage^2) + Purity + Clarity + Certificate, data = db)
+summary(lm3)
+```
+Our new variable is significant for the model. We investigate if it meets the linear model assumptions.
+
+### Model plots
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+plot(lm3, which=c(1:4), ask=F)
+```
+### Statistical tests
+
+```{r, echo=FALSE}
+jarque.bera.test(lm3$residuals)
+bptest(lm3)
+dwtest(lm3)
+```
+Looking at the plots, we cannot conclude much, so we get straight to statistical tests. 
+It seems like residuals are normally distributed and have constant variance. On the other hand, the model still fails the residual homogenity hypothesis.
+
+#4 Conclusion
+We definitely prefer the second remedial action as it results in meeting two linear model assumptions (residuals normality and constance in variance). 
+In term of intepretability, it's true that square of a variable makes the model hard to intepret, but in our opinion this approach outperforms the bias introduced by artificially created clusters - in this approach we could also have some interpretability difficulties especially with the values very close to 'breaks'.
