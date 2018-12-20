@@ -25,90 +25,87 @@ library(factoextra)
 library(vcdExtra)
 library(vcd)
 library(bnlearn)
+library(gridExtra)
 ```
-##1
-#a)
-```{r, include=FALSE}
+The tables for each traffic condition are presented below:
+```{r, echo=FALSE}
 Elks.table=data.frame(expand.grid(Action=c("Crossing", "Retreat"), Traffic=c("Low", "High"), Vehicle=c("Car", "Truck")), count=c(287,57,237,52,40,42,57,12))
-Elks.table.partial=xtabs(count~Action+Traffic+Vehicle, Elks.table)
-oddsratio(Elks.table.partial, log=FALSE)
-confint(oddsratio(Elks.table.partial, log=FALSE),log = FALSE)
+Elks.table$Action = ordered(Elks.table$Action, levels = c("Crossing","Retreat"))
+Elks.table$Vehicle = ordered(Elks.table$Vehicle, levels = c("Car","Truck"))
+Elks.table$Traffic = ordered(Elks.table$Traffic, levels = c("Low","High"))
+Elks.table.partial=xtabs(count~Action+Vehicle+Traffic, Elks.table)
+Elks.table.partial
+```
+
+```{r, echo=FALSE}
+partial.low=Elks.table.partial[,,1]
+partial.high=Elks.table.partial[,,2]
+
+```
+We perform chi square independency test between Action and Car, controlling Traffic. 
+
+```{r, echo=FALSE}
+chisq.test(partial.low)
+chisq.test(partial.high)
+
+```
+
+In low Traffic conditions we we reject the null hypothesis of independency between Action and Car, whereas in High traffic conditions we can accept the hypothesis for sure.
+Next, we check the odds ratio and the confidence interval.
+```{r, echo=FALSE}
+oddsratio(partial.low, log=FALSE)
+oddsratio(partial.high, log=FALSE)
+confint(oddsratio(partial.low, log=FALSE))
+confint(oddsratio(partial.high, log=FALSE))
+
+```
+The odds of an elk crossing the street when approaching a car instead of truck (in low traffic conditions) are definitely higher (greater than 1).
+In high Traffic conditions the odds of an elk crossing a street given a car are 0.96 times the odds of if truck approaching.
+
+```{r, echo=FALSE, fig.height=3}
 fourfold(Elks.table.partial)
-
 ```
-From the odds ratio we can easily say that the cars have a bigger influence on if the elks cross the highway than the trucks, since the OR of the cars > 1 and the OR of the trucks are < 1.
 To help us to conclude what we said before we can check the two fourfold display.
-It's easy to analyze that there are much more elks crossing the highway when they spot a car than when they see a truck. However, we can't be absolutely sure because usually there less trucks than cars in the highways. If we calculate the probability of crossing the highway in both cases, it's possible to conclude something. 
-The probability of crossing with cars it's P(cross with cars) = ((287+237)/( 287+237+57+52)) = 0.82 = 82%.
-The probability of crossing with trucks it's P(cross with trucks) = ((40+57)/(40+57+42+12)) = 0.64 = 64%.
-Now it's possible to say that there is a higher probability that the elks will cross the road with cars (82%) than with trucks (64%).
+It's easy to analyze that there are much more elks crossing the highway when they spot a car than when they see a truck.
 
 
-
-```{r, include=FALSE}
-mosaic(t(Elks.table.partial[,,1]), gp=shading_max, split_vertical=TRUE)
-mosaic(t(Elks.table.partial[,,2]), gp=shading_max, split_vertical=TRUE)
+```{r,echo=FALSE, out.width='.49\\linewidth', fig.width=3, fig.height=4,fig.show='hold',fig.align='center'}
+mosaic(t(Elks.table.partial[,,1]), gp=shading_max, split_vertical=TRUE, main='Low traffic')
+mosaic(t(Elks.table.partial[,,2]), gp=shading_max, split_vertical=TRUE, main='High traffic')
 
 ```
-To help us comparing we used the mosaic function and we calculated the probability of crossing the road with high traffic and low traffic, we will see differences between vehicles.
-Cars 
-Probability of crossing with high traffic:
-P = 237/(237+52) = 0.82 = 82%
-Probability of crossing with low traffic:
-P = 287/(287+57) = 0.834 = 83,4%
+Given trucks, an elk is more likely to think twice when the traffic is low, as the probability is lower than when the traffic is high. 
 
-Trucks
-Probability of crossing with high traffic:
-P = 57/(57+12) = 0.826 = 82,6%
-Probability of crossing with low traffic:
-P = 40/(40+42) = 0.487 = 48,7%
-From these probabilities we can see that with cars there is a high probability that elks will cross whether there is high or low traffic. 
-With trucks the situation is not the same as it's with the cars. When there is high traffic the probability that elks will cross it's much higher than with low traffic, where the probability it's 48,7%.
-
-#b)
 First, we worked the data to analyze the problem without taking account the third variable (traffic).
 ```{r, include=FALSE}
 Elks.table.divMinusTraffic=xtabs(count~Action+Vehicle, data=Elks.table)
+
 ```
 When we computed the odds ration we have got the following result:
-```{r, include=FALSE}
+```{r, echo=FALSE}
 orMinusTraffic <- oddsratio(Elks.table.divMinusTraffic, log=FALSE)
 orMinusTraffic
 ```
 We executed once again the fourfold command to get a better understanding of the result when we change the number of variables involved in this problem. When the control variable is taken off (traffic) we get the following result in the fourfold command:
-```{r, include=FALSE}
-Elks.table.divMinusTraffic
+
+```{r, echo=FALSE, fig.height=3}
 fourfold(Elks.table.divMinusTraffic)
 ```
-This means that:
-Number of actions when the vehicle is a car = 524+109 = 633
-Number of actions when the vehicle is a car = 97+54 = 151
+We see that actions and vehicles are not independent, and the odds of an elk crossing when given a car is over 2 times the odds of an elk crossing when truck approaching, regardless traffic.
 
-So:
-Percentage of crossing when is a car = 524/633 = 83%
-Percentage of retreat when is a car = 109/633 = 17%
+Since we already checked that elks are prone to cross regardless the car when the traffic is high we would decide to keep distinction between traffic in further analysis.
 
-Percentage of crossing when is a truck = 97/151 = 64%
-Percentage of retreat when is a truck = 54/151 = 36%
-
-These values show that the number of elks that take the option of starting to cross under the highway is much higher when the type of vehicle is a car than when we talk about trucks. We probably can assume that the elks are initially influenced by the size of the vehicle.
-When the vehicle is a car, an elk that started to cross the highway tend to cross all through instead of retreat (83% of crossing against 17% of retreat). The same thing happens when a vehicle is a truck (64% of crossing against 36% of retreat), but in a minor scale, since the number of elks registered when the vehicle is a truck is much lesser than when the vehicle is a car. 
-With these values we can conclude that the major influence upon the elk's cross is the type of vehicle that is crossing at the same time and in this way, we assume that the scale of traffic isn't so relevant to this question, so it will be correct to exclude the effect of that third variable (traffic).
-
-#c)
-```{r, include=FALSE}
+```{r, echo=FALSE}
 Elks.table.pa=xtabs(count~Action+Vehicle+Traffic, Elks.table)
 woolf_test(Elks.table.pa)
 ```
-For this homogeneous test between the three variables we used the wolf-test. From the output of this test we got a low value for the p-value, with 0.0001076. Because this value is less than 0.05, which means it's lower than the usual 5% significance level, we can reject the hypothesis of homogeneous association. This means that the probability of the elks performs some action with a vehicle is never equals regardless of the conditions of the traffic. 
+We can reject the hypothesis of homogeneous association. This means that the probability of the elks perform some action with a vehicle is never equal regardless of the conditions of the traffic. 
 
-#d)
-A general definition of conditional independence is that if two events X and Y are conditionally independent given a third event Z precisely if the occurrence of X and the occurrence of Y are independent events in their conditional probability distribution given Z.
-In this case we want to know if the type of vehicle (X) and the Action (Y) are conditional independent given the traffic (Z). For this, we used the Mantel-Haenszel estimate to get some information about the relation between the three variables. So, we've got the following results:
-```{r, include=FALSE}
-mantelhaen.test(Elks.table.parcial)
+Next, we want to know if the type of vehicle (X) and the Action (Y) are conditional independent given the traffic (Z). For this, we used the Mantel-Haenszel estimate to get some information about the relation between the three variables. So, we've got the following results:
+```{r, echo=FALSE}
+mantelhaen.test(Elks.table.partial)
 ```
-The Common Odds Ratio as the value of 2.658553. This estimate combines information across partial tables and it must be used when the X???Y association is similar in each partial table. With this, we say that the odds of the action of crossing when the type of vehicle is car is equal to almost about triple (approx. 2.7) of the odds for the type truck.
-In the output we've got the p-value of 7.868e-07, what is a relatively high value for the type of test we executed. For convention, a p-value very small indicates strong evidence against the null hypothesis (usually < 2.2e-16), so we need to reject the null hypothesis, what is not the case. In our problem the null hypothesis is that exists conditional independence between action and vehicle for the type of traffic and since the p-value is equal to 7.868e-07 we don't reject the null hypothesis, this is, we admit that there is conditional independence in this context.
+The Common Odds Ratio as the value of 2.658553, we say that the odds of the action of crossing when the type of vehicle is car is equal to almost about triple (approx. 2.7) of the odds for the type truck.
+Given p-value for this test we reject the hypothesis of conditional independence between crossing between type of vehicle and traffic conditions.
 
 
