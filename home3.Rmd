@@ -1,0 +1,217 @@
+---
+title: "Homework3"
+author: "Monika Wysoczanska, Manuel Barbas, Diogo Oliveira"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("forecast")
+library("fpp")
+library("xlsx")
+library("astsa")
+library("gridExtra")
+library("ggplot2")
+library("knitr")
+library("kableExtra")
+library("car")
+```
+
+We start our analysis with plotting the data.
+
+```{r, echo=FALSE, fig.height=2}
+data = read.xlsx("data_g13.xlsx", sheetIndex = 1)
+data_ts=ts(data$Visados, start=c(1991,11), end = c(2007,1), frequency=12)
+autoplot(data_ts)
+
+
+```
+Observations: \newline
+1. There is a general increasing trend in the data. \newline
+2. Seasonality each year (around middle of a year)\newline
+3. Non-stationary behaviour
+
+
+```{r, echo=FALSE, fig.height=2}
+month=ggmonthplot(data_ts)
+season=ggseasonplot(data_ts, polar=TRUE)
+grid.arrange(month, season, ncol = 2)
+data_max_value_year <- floor(time(data_ts)[which.max(data_ts)])
+
+```
+We observe a succesive increase in the first part of each year, reaching a peak in July and a significant drop in August. 
+Another interesting thing is a very high value in September 2006.
+
+Looking at the first plot, we concluded rather multiplicative behaviour of our data, so we apply log tranformation for stl decomposition function.
+```{r, echo=FALSE}
+stl1=stl(log(data_ts), "periodic", robust=TRUE)
+
+```
+The Loess decomposition on logarithm transform of our data confirmed all of our previous observations, leaving rather random noise in the remainder. In order to make sure, we explore ACF and PACF plots for the remainder.
+
+
+```{r, echo=FALSE, fig.height=3}
+invisible(acf2(stl1$time.series[,"remainder"], na.action = na.pass))
+
+
+```
+Looking at the plots we conclude, that in general correlations do not exceed the white noise bounds. 
+
+## Forecasting
+
+We use 2 different methods for forecasting: "ets", "rwdrift". The plots can be seen below.
+```{r, echo=FALSE, fig.height=4}
+fcst=forecast(stl1, method="ets", h=12)
+p1=autoplot(fcst)+ ylab("")
+fcst=forecast(stl1, method="rwdrift", h=12)
+p2=autoplot(fcst) + ylab("")
+grid.arrange(p1,p2 )
+```
+We evaluate our model's accuracy using Cross Validation method. The results of two methods can be seen below:
+```{r cross validation, echo=FALSE}
+stl.cv <- function(x, h, m){forecast(stl(log(x),s.window = "periodic", robust = TRUE), method=m, h=h)}
+error.ets <- tsCV(data_ts, stl.cv,m="ets", h=12)
+error.rwd <- tsCV(data_ts, stl.cv, m="rwdrift", h=12)
+list.error <- data.frame(sqrt(mean(error.ets^2, na.rm=TRUE)), 
+                sqrt(mean(error.rwd^2, na.rm=TRUE)), row.names = "RMSE")
+colnames(list.error) <- c("ets","rwdrift")
+kable(list.error) %>% kable_styling(full_width = F)
+```
+Both methods seem to perform very similarily.
+
+##Fitting ARIMA model
+First of all we decide on the transformation we want to apply to our data. 
+```{r, echo=FALSE, fig.height=3, fig.align='center'}
+
+p1=autoplot(data_ts) 
+p2=autoplot(log(data_ts))
+grid.arrange(p1,p2)
+```
+As we can see above, the logarithm transformation stabilizes the variance in the data, so we decide to stick with our primal decision.
+
+Now, we take a look at periodogram, is order to make sure we made a rigtht decision at the begining of our analysis about data seasonality. 
+```{r, echo=FALSE, fig.height=4, fig.align='center'}
+data_ts.log=log(data_ts)
+tsdisplay(data_ts.log, plot.type = "spectrum")
+```
+We can see significant peaks each year, meaning our s parameter, as already stated in the beginning, should be s=12. This may be also visible on the seasonal plot we displayed earlier.
+
+## Stationarity 
+As we concluded visually, our data is not stationary, here we conduct KPSS and ADF tests to confirm it. 
+```{r KPSS Test for Stationarity,echo=FALSE}
+kpss.test(data_ts.log)
+adf.test(data_ts.log)
+```
+Both tests give rather contradictory results, as by KPSS test we reject stationarity and by ADF test we could accept the alternative hypothesis of stationarity. Nevertheless, the standard deviation is greater than zero, so we'll try to transform our data to achieve stationarity by differencing.
+
+We first check by using ndiffs and nsdiffs functions, that are supossed to estimate the number of differences required to make a given time series stationary and the number of seasonal differences respectively. 
+```{r, include=FALSE}
+nsdiffs(data_ts.log)
+ndiffs(data_ts.log)
+```
+
+We should be able to achieve stationarity by applying one differentiation and one seasonal differentiation. First, we try to detrend our data.
+
+```{r, echo=FALSE, fig.align='center', fig.height=3}
+orig=autoplot(data_ts.log)
+diff1=diff(data_ts.log)
+diff1_plot=autoplot(diff1)
+grid.arrange(orig, diff1_plot)
+```
+Visually we observe proper detrending of our data. We conduct again set of tests to check if the transform is sufficient to achieve stationarity. 
+
+```{r, echo=FALSE}
+kpss.test(diff1)
+adf.test(diff1)
+```
+Both tests indicate that we achieved stationarity. Standard deviation also dropped. We'll take a look at ACF PACF plots.
+```{r, echo=FALSE, fig.height=3, fig.align='center'}
+invisible(acf2(diff1))
+```
+There is no visible pattern on both plots above. Although, it already makes as state that first-order differentation is enough to achieve stationarity of our data, we check if applying seasonal differentation improves it, since we observed seasonal behaviour from the beginning. 
+
+```{r, echo=FALSE, fig.align='center', fig.height=4}
+diff2=diff(diff(data_ts.log, 12))
+kable(data.frame( sd(data_ts.log), sd(diff1), sd(diff2),row.names = "Standard deviation")) %>% kable_styling(full_width = F)
+
+```
+
+Following "The optimal order of differencing is often the order of differencing at which the standard deviation is lowest" advice, we will take it into account in ARIMA model construction.
+
+We try different p,q,P,Q values configurations.
+```{r}
+model.1=Arima(data_ts.log,order=c(1,1,1),seasonal=list(order=c(0,0,0), period=12))
+model.2=Arima(data_ts.log,order=c(2,1,1),seasonal=list(order=c(0,1,1), period=12))
+model.3=Arima(data_ts.log,order=c(2,1,1),seasonal=list(order=c(2,1,1), period=12))
+model.4=Arima(data_ts.log,order=c(2,1,1),seasonal=list(order=c(0,1,3), period=12))
+model.5=Arima(data_ts.log,order=c(2,1,0),seasonal=list(order=c(2,1,1), period=12))
+
+aics = data.frame(model.1$aic, model.2$aic, model.3$aic, model.4$aic,model.5$aic)
+kable(aics)%>% kable_styling(full_width = F)
+
+```
+The worst model is the one without seasonal component, whereas the best model based on AIC is model number 3.  We check correlations between coefficients.
+
+```{r, echo=FALSE}
+kable(cov2cor(model.3$var.coef))
+```
+We observe high negative correlation between ar1 and ma1, therefore we check next model for its coefficients. Since model 4 has the same parameters for non-seasonal components, we check model nr 3, which does not include MA component. 
+```{r, echo=FALSE}
+kable(cov2cor(model.5$var.coef))
+```
+It seems like coefficients look good enough. Now we check the residuals of the model.
+```{r, echo=FALSE, fig.height=3, fig.align='center'}
+checkresiduals(model.5)
+t.test(model.5$residuals)
+invisible(jarque.bera.test(model.5$residuals))
+jarque.bera.test(model.5$residuals[-which.max(model.5$residuals)])
+```
+The autocorrelation plot of residuals looks reasonabily; we can also accept the hypothesis that true mean is equal to 0, and the hyopthesis of residuals independence (by Ljung-Box test). Nevertheless, residuals are not normally distributed, which can be seen already on the plot, but we also confirm it by Jarque Bera test. Outlier removal also didn't improve normality. 
+
+Just for sanity check and to not regret anything later, we checked the residuals of model 5, which we rejected becuse of coefficient correlations. 
+```{r, echo=FALSE, fig.height=3, fig.align='center'}
+checkresiduals(model.3)
+t.test(model.3$residuals)
+jarque.bera.test(model.3$residuals[-which.max(model.3$residuals)])
+```
+Model 3 performs similarily in terms of residuals. It may seem visually that residuals are "more normally" distributed, but it still fails Jarque Bera test.
+
+
+## Forecast and models' evaluation
+As we cannot decide between those two models, we conduct the forecast for both of them and compare to auto ARIMA model.
+```{r, echo=FALSE}
+auto=auto.arima(data_ts.log, d=1, D=1,max.p=3,max.q=3,max.P=3,max.Q=3)
+summary(auto)
+```
+
+```{r, echo=FALSE, fig.height=5, fig.align='center'}
+p1=autoplot(forecast(model.5, h=12))
+p2=autoplot(forecast(model.3, h=12))
+p3=autoplot(forecast(auto, h=12))
+grid.arrange(p1, p2, p3)
+```
+
+And we compute RMSE for both of them keeping last 12 months as test data.
+
+```{r, include=FALSE}
+getrmse <- function(x,h,...)
+{
+  train.end <- time(x)[length(x)-h]   #train data end
+  test.start <- time(x)[length(x)-h+1]  #test data start
+  train <- window(x,end=train.end) #extract train data
+  test <- window(x,start=test.start)  #extract test data
+  fit <- Arima(train,...) # fit model with train data
+  fc <- forecast(fit,h=h) # forecast with model
+  return(accuracy(fc,test)[2,"RMSE"]) 
+}
+
+```
+
+```{r, echo=FALSE}
+model3=getrmse(data_ts.log,h=12,order=c(2,1,1),seasonal=c(2,1,1)) #model.3
+model5=getrmse(data_ts.log,h=12,order=c(2,1,0),seasonal=c(2,1,1)) #model.5
+auto=getrmse(data_ts.log,h=12,order=c(0,1,1),seasonal=c(3,1,2)) #auto
+rmses=data.frame(model3, model5, auto, row.names = "RMSE")
+kable(rmses)%>% kable_styling(full_width = F)
+```
+Although the differences between models' RMSEs aren't big, unfortunately, we need to admit that Auto ARIMA model performs better than both of our proposed models. But since it requires more paramters, we therefore state that the best model is model.5 with the lowest RMSE on test data, and (what is apparently very important for us) without correlated coefficients.
